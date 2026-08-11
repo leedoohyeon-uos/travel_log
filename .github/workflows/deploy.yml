@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ['main']
+    branches: ['main'] # 브랜치 이름이 다르면 master로 변경하세요.
 
 permissions:
   contents: read
@@ -32,6 +32,7 @@ jobs:
         run: npm install
 
       - name: Build
+        # 여기서 Secrets에 등록한 환경변수를 불러와 빌드합니다.
         env:
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
@@ -47,7 +48,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist'
+          path: './dist' # 핵심! 반드시 dist 폴더만 올리도록 지정합니다.
 
       - name: Deploy to GitHub Pages
         id: deployment
