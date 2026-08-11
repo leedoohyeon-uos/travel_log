@@ -26,8 +26,9 @@ import { WorldMap } from './components/WorldMap';
 import { KoreaMap } from './components/KoreaMap';
 import { PhotoModal } from './components/PhotoModal';
 import { AuthModal } from './components/AuthModal';
+import { HelpModal } from './components/HelpModal';
 
-import { Globe2, Sparkles, ListFilter } from 'lucide-react';
+import { Globe2, Sparkles, ListFilter, HelpCircle } from 'lucide-react';
 
 export default function App() {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
@@ -49,6 +50,7 @@ export default function App() {
   // Modals
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState<boolean>(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState<boolean>(false);
 
   // Travel Data
   const [travelRecords, setTravelRecords] = useState<Record<string, TravelRecord>>({});
@@ -431,6 +433,23 @@ export default function App() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onStartTestGuestSession={handleStartTestGuestSession}
+      />
+
+      {/* Floating Help Button (Fixed Bottom-Right) */}
+      <button
+        id="btn-open-help-modal"
+        onClick={() => setIsHelpModalOpen(true)}
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-30 bg-[#4B5E40] hover:bg-[#3d4d34] text-white px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-full shadow-lg border border-white/20 flex items-center gap-2 text-xs sm:text-sm font-bold transition-all hover:scale-105 cursor-pointer active:scale-95 group"
+        title="도움말 보기"
+      >
+        <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300 group-hover:rotate-12 transition-transform" />
+        <span className="font-medium">도움말</span>
+      </button>
+
+      {/* Help Modal */}
+      <HelpModal
+        isOpen={isHelpModalOpen}
+        onClose={() => setIsHelpModalOpen(false)}
       />
 
     </div>
