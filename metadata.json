@@ -1,6 +1,0 @@
-{
-  "name": "Travel Log",
-  "description": "너는 어디까지 가봤니? - 개인 지도 기반 여행 기록 서비스",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
