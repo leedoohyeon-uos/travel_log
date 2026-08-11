@@ -31,19 +31,6 @@
 
 ---
 
-## ⚙️ 실제 지도 데이터 / API 적용 가이드
-
-본 프로젝트는 현재 독립적인 D3.js 기반 지형 맵 및 표준 GeoJSON으로 구성되어 있습니다. 향후 실제 네이버 지도, 카카오 맵, 구글 맵스 API 또는 고해상도 시군구 GeoJSON/Vector Tile로 교체하실 경우 아래 주요 소스코드 파일의 주석 가이드를 참고하세요.
-
-| 파일 경로 | 실제 지도 적용 시 역할 및 수정 위치 |
-| :--- | :--- |
-| **`/src/components/WorldMap.tsx`** | `// 실제 지도 적용 시 이 부분을 실제 지도 데이터/API로 교체`<br>D3 오르토그래픽 지구본/Natural Earth 투영 코드를 Google Maps Platform 또는 Leaflet 등으로 교체 |
-| **`/src/components/KoreaMap.tsx`** | `// 실제 지도 적용 시 이 부분을 실제 지도 데이터/API로 교체`<br>국내 D3 경위도 투영 코드를 Kakao Maps / Naver Maps SDK 및 행정구역 250개 정밀 GeoJSON으로 교체 |
-| **`/src/data/world-geojson.ts`** | `// 실제 지도 적용 시 이 부분을 실제 지도 데이터/API로 교체`<br>전 세계 고해상도 1:10m Scale GeoJSON 파일 또는 외부 Vector Tile API로 교체 |
-| **`/src/data/korea-geojson.ts`** | `// 실제 지도 적용 시 이 부분을 실제 지도 데이터/API로 교체`<br>대한민국 통계청/행정안전부 정밀 시군구 boundary GeoJSON으로 교체 |
-
----
-
 ## 기술 스택
 
 * **Frontend**: React 18, TypeScript, Tailwind CSS, Vite
