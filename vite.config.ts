@@ -5,7 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: '/travel-log/',
+    base: '/travel_log/',
 
     plugins: [react(), tailwindcss()],
     resolve: {
