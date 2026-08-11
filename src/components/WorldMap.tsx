@@ -46,8 +46,8 @@ export const WorldMap: React.FC<WorldMapProps> = ({
     setLoading(true);
 
     Promise.all([
-      fetch('/geojson/world_sphere_3d.geojson').then(r => r.json()),
-      fetch('/geojson/world.geojson').then(r => r.json())
+      fetch('${import.meta.env.BASE_URL}geojson/world_sphere_3d.geojson').then(r => r.json()),
+      fetch('${import.meta.env.BASE_URL}geojson/world.geojson').then(r => r.json())
     ])
       .then(([g3d, g2d]: [FeatureCollection, FeatureCollection]) => {
         if (!isMounted) return;

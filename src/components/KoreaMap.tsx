@@ -43,7 +43,7 @@ export const KoreaMap: React.FC<KoreaMapProps> = ({
     let isMounted = true;
     setLoading(true);
 
-    fetch('/geojson/korea.geojson')
+    fetch('${import.meta.env.BASE_URL}geojson/korea.geojson')
       .then(res => res.json())
       .then((data: FeatureCollection) => {
         if (isMounted) {
