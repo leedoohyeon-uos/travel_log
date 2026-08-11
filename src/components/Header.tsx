@@ -33,49 +33,49 @@ export const Header: React.FC<HeaderProps> = ({
   const unitLabel = tabMode === 'overseas' ? '개국' : '개 세부 지역';
 
   return (
-    <header className="bg-white border-b border-[#E5E2D9] text-[#1A1A1A] px-6 py-3.5 sticky top-0 z-30 shadow-xs">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+    <header className="bg-white border-b border-[#E5E2D9] text-[#1A1A1A] px-3 sm:px-6 py-2 sm:py-3 sticky top-0 z-30 shadow-xs shrink-0">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2.5 sm:gap-4">
         
         {/* Title branding */}
-        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-4 w-full md:w-auto justify-between md:justify-start">
           <div className="flex flex-col">
-            <span className="text-[11px] uppercase tracking-widest text-gray-400 font-medium">너는 어디까지 가봤니?</span>
-            <h1 className="text-2xl font-serif italic text-[#3A3A3A] tracking-tight flex items-center gap-2">
+            <span className="text-[10px] sm:text-[11px] uppercase tracking-widest text-gray-400 font-medium">너는 어디까지 가봤니?</span>
+            <h1 className="text-lg sm:text-2xl font-serif italic text-[#3A3A3A] tracking-tight flex items-center gap-2">
               이두현의 travel log
             </h1>
           </div>
 
           {/* Overseas / Domestic toggle button */}
-          <div className="bg-[#F5F5F0] p-1 rounded-lg flex items-center border border-[#E5E2D9]">
+          <div className="bg-[#F5F5F0] p-0.5 sm:p-1 rounded-lg flex items-center border border-[#E5E2D9]">
             <button
               id="btn-tab-overseas"
               onClick={() => setTabMode('overseas')}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded text-xs font-bold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1 sm:py-1.5 rounded text-xs font-bold transition-all ${
                 tabMode === 'overseas'
                   ? 'bg-[#4B5E40] text-white shadow-xs'
                   : 'text-[#4B5E40] hover:bg-gray-200/60'
               }`}
             >
-              <Globe2 className="w-3.5 h-3.5" />
+              <Globe2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               해외
             </button>
             <button
               id="btn-tab-domestic"
               onClick={() => setTabMode('domestic')}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded text-xs font-bold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1 sm:py-1.5 rounded text-xs font-bold transition-all ${
                 tabMode === 'domestic'
                   ? 'bg-[#4B5E40] text-white shadow-xs'
                   : 'text-[#4B5E40] hover:bg-gray-200/60'
               }`}
             >
-              <MapPin className="w-3.5 h-3.5" />
-              국내 (세부 시·군·구)
+              <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              국내<span className="hidden sm:inline"> (세부 시·군·구)</span>
             </button>
           </div>
         </div>
 
         {/* Status Mode Selectors */}
-        <div className="flex items-center gap-1 bg-[#F0EFEC] p-1 rounded-full border border-[#E5E2D9] overflow-x-auto w-full md:w-auto justify-center">
+        <div className="flex items-center gap-1 bg-[#F0EFEC] p-1 rounded-full border border-[#E5E2D9] overflow-x-auto max-w-full w-full md:w-auto justify-start md:justify-center no-scrollbar">
           <button
             id="status-mode-visited"
             onClick={() => setStatusMode('visited')}

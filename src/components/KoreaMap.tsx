@@ -38,6 +38,40 @@ export const KoreaMap: React.FC<KoreaMapProps> = ({
   const [focusedProvince, setFocusedProvince] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<MapTooltipData | null>(null);
 
+  // Dimensions state for auto-resize
+  const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+
+  // Auto-resize observer
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const updateSize = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const w = rect.width || containerRef.current.clientWidth || 800;
+        const h = rect.height || containerRef.current.clientHeight || 550;
+        setDimensions(prev => {
+          if (prev.width === w && prev.height === h) return prev;
+          return { width: w, height: h };
+        });
+      }
+    };
+
+    updateSize();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateSize();
+    });
+
+    resizeObserver.observe(containerRef.current);
+    window.addEventListener('resize', updateSize);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateSize);
+    };
+  }, []);
+
   // Fetch actual Korea GeoJSON
   useEffect(() => {
     let isMounted = true;
@@ -69,10 +103,12 @@ export const KoreaMap: React.FC<KoreaMapProps> = ({
   useEffect(() => {
     if (!svgRef.current || !containerRef.current || !geojson) return;
 
-    const width = containerRef.current.clientWidth || 800;
-    const height = containerRef.current.clientHeight || 550;
+    const width = dimensions.width || containerRef.current.clientWidth || 800;
+    const height = dimensions.height || containerRef.current.clientHeight || 550;
+    if (width <= 0 || height <= 0) return;
 
     const svg = d3.select(svgRef.current);
+    svg.attr('viewBox', `0 0 ${width} ${height}`);
     svg.selectAll('*').remove();
 
     // Filter features if a province is focused (show sub-districts/municipalities belonging to that province)
@@ -95,9 +131,10 @@ export const KoreaMap: React.FC<KoreaMapProps> = ({
     }
 
     // D3 Mercator projection centered on South Korea
+    const mapScale = Math.min(width, height) * 10 * zoomScale;
     const projection = d3.geoMercator()
       .center([127.8, 35.8])
-      .scale(width * 8 * zoomScale)
+      .scale(mapScale)
       .translate([width / 2, height / 2]);
 
     const pathGenerator = d3.geoPath().projection(projection);
@@ -256,13 +293,13 @@ export const KoreaMap: React.FC<KoreaMapProps> = ({
         onSelectRegion(code);
       });
 
-  }, [geojson, zoomScale, travelRecords, photoRecords, selectedCode, focusedProvince]);
+  }, [geojson, zoomScale, travelRecords, photoRecords, selectedCode, focusedProvince, dimensions]);
 
   const focusedMeta = focusedProvince ? getKoreaRegionByCode(focusedProvince) : null;
 
   if (loading) {
     return (
-      <div className="w-full h-full min-h-[500px] bg-[#E6E8E3] flex flex-col items-center justify-center gap-3 text-[#4B5E40]">
+      <div className="w-full h-full min-h-[300px] bg-[#E6E8E3] flex flex-col items-center justify-center gap-3 text-[#4B5E40]">
         <Loader2 className="w-8 h-8 animate-spin" />
         <span className="text-sm font-medium">대한민국 세부 지도 데이터를 로드하는 중...</span>
       </div>
@@ -270,15 +307,15 @@ export const KoreaMap: React.FC<KoreaMapProps> = ({
   }
 
   return (
-    <div ref={containerRef} className="relative w-full h-full min-h-[500px] bg-[#E6E8E3] overflow-hidden flex items-center justify-center select-none">
+    <div ref={containerRef} className="relative w-full h-full min-h-[300px] bg-[#E6E8E3] overflow-hidden flex items-center justify-center select-none">
       
       {/* Zoom & View Controls */}
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-white/80 backdrop-blur-md p-1.5 rounded-xl border border-[#E5E2D9] shadow-xs">
+      <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex items-center gap-1.5 sm:gap-2 bg-white/90 backdrop-blur-md p-1 sm:p-1.5 rounded-xl border border-[#E5E2D9] shadow-xs text-xs">
         {focusedProvince && (
           <button
             id="btn-back-korea-all"
             onClick={() => setFocusedProvince(null)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#4B5E40] hover:bg-[#3d4d34] text-white shadow-xs transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-lg text-xs font-semibold bg-[#4B5E40] hover:bg-[#3d4d34] text-white shadow-xs transition-all cursor-pointer whitespace-nowrap"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> 전국 도/시 보기
           </button>
@@ -346,18 +383,18 @@ export const KoreaMap: React.FC<KoreaMapProps> = ({
 
       {/* Region Sub-Districts Overlay Card when focused */}
       {focusedMeta && (
-        <div className="absolute bottom-6 left-6 z-20 bg-white/95 backdrop-blur-md border border-[#E5E2D9] p-4 rounded-xl shadow-xl max-w-xs text-xs text-[#1A1A1A]">
+        <div className="absolute bottom-3 left-3 sm:bottom-6 sm:left-6 z-20 bg-white/95 backdrop-blur-md border border-[#E5E2D9] p-3 sm:p-4 rounded-xl shadow-xl max-w-[240px] sm:max-w-xs text-xs text-[#1A1A1A]">
           <div className="font-bold text-[#4B5E40] text-sm mb-1.5 flex items-center justify-between">
             <span>{focusedMeta.name} (시·군·구 세부)</span>
             <button
               onClick={() => setFocusedProvince(null)}
-              className="text-gray-400 hover:text-gray-600 text-xs cursor-pointer"
+              className="text-gray-400 hover:text-gray-600 text-xs cursor-pointer p-1"
             >
               ✕
             </button>
           </div>
           <p className="text-gray-500 text-[11px] mb-2">원하는 시·군·구를 클릭하여 선택할 수 있습니다:</p>
-          <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+          <div className="flex flex-wrap gap-1 max-h-28 sm:max-h-32 overflow-y-auto">
             {focusedMeta.subDistricts?.map(sub => (
               <button
                 key={sub.code}
@@ -376,20 +413,20 @@ export const KoreaMap: React.FC<KoreaMapProps> = ({
       )}
 
       {/* Map Legend */}
-      <div className="absolute bottom-6 right-6 flex items-center gap-6 bg-white/70 backdrop-blur px-4 py-2 rounded-full border border-white/60 shadow-xs text-xs text-gray-700">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-[#CBD3C8] rounded-xs"></div>
-          <span className="text-[11px] text-gray-600 font-medium">미방문</span>
+      <div className="absolute bottom-3 right-3 sm:bottom-6 sm:right-6 flex items-center gap-3 sm:gap-6 bg-white/80 backdrop-blur px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-white/60 shadow-xs text-[10px] sm:text-xs text-gray-700 max-w-[90vw] overflow-x-auto">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-[#CBD3C8] rounded-xs"></div>
+          <span className="text-gray-600 font-medium">미방문</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 bg-[#A8B7A1] rounded-xs"></div>
-          <div className="w-3 h-3 bg-[#8BA184] rounded-xs"></div>
-          <div className="w-3 h-3 bg-[#4B5E40] rounded-xs"></div>
-          <span className="text-[11px] text-gray-600 font-medium ml-1">방문 (진할수록 다수)</span>
+        <div className="flex items-center gap-1 shrink-0">
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-[#A8B7A1] rounded-xs"></div>
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-[#8BA184] rounded-xs"></div>
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-[#4B5E40] rounded-xs"></div>
+          <span className="text-gray-600 font-medium ml-0.5">방문</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-[#D4A373] rounded-xs"></div>
-          <span className="text-[11px] text-gray-600 font-medium">위시리스트</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-[#D4A373] rounded-xs"></div>
+          <span className="text-gray-600 font-medium">위시리스트</span>
         </div>
       </div>
 

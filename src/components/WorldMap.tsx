@@ -40,61 +40,94 @@ export const WorldMap: React.FC<WorldMapProps> = ({
   const [zoomScale, setZoomScale] = useState<number>(1);
   const [tooltip, setTooltip] = useState<MapTooltipData | null>(null);
 
-  // Fetch both 3D sphere and 2D flat GeoJSON files on mount
-useEffect(() => {
-  let isMounted = true;
-  setLoading(true);
+  // Dimensions state for auto-resize
+  const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
-  Promise.all([
-    // 👇 작은따옴표(')를 백틱(`)으로 변경!
-    fetch(`${import.meta.env.BASE_URL}geojson/world_sphere_3d.geojson`).then(r => r.json()),
-    fetch(`${import.meta.env.BASE_URL}geojson/world.geojson`).then(r => r.json())
-  ])
-    .then(([g3d, g2d]: [FeatureCollection, FeatureCollection]) => {
-      if (!isMounted) return;
+  // Auto-resize observer
+  useEffect(() => {
+    if (!containerRef.current) return;
 
-      // Transform 3D Cartesian coordinates [x, y, z] to Spherical [lon, lat] for D3 projection
-      const converted3DFeatures = g3d.features.map(feature => {
-        const transformedGeom = JSON.parse(JSON.stringify(feature.geometry));
+    const updateSize = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const w = rect.width || containerRef.current.clientWidth || 800;
+        const h = rect.height || containerRef.current.clientHeight || 550;
+        setDimensions(prev => {
+          if (prev.width === w && prev.height === h) return prev;
+          return { width: w, height: h };
+        });
+      }
+    };
 
-        const convertPoint = ([x, y, z]: number[]) => {
-          const r = Math.sqrt(x * x + y * y + z * z) || 1;
-          const lat = Math.asin(Math.max(-1, Math.min(1, z / r))) * (180 / Math.PI);
-          const lon = Math.atan2(y, x) * (180 / Math.PI);
-          return [lon, lat];
-        };
+    updateSize();
 
-        const transformCoords = (coords: any): any => {
-          if (typeof coords[0] === 'number') {
-            return convertPoint(coords);
-          }
-          return coords.map(transformCoords);
-        };
-
-        transformedGeom.coordinates = transformCoords(transformedGeom.coordinates);
-
-        return {
-          ...feature,
-          geometry: transformedGeom
-        };
-      });
-
-      setData3D({
-        type: 'FeatureCollection',
-        features: converted3DFeatures
-      });
-      setData2D(g2d);
-      setLoading(false);
-    })
-    .catch(err => {
-      console.error('Failed to load world GeoJSON files:', err);
-      if (isMounted) setLoading(false);
+    const resizeObserver = new ResizeObserver(() => {
+      updateSize();
     });
 
-  return () => {
-    isMounted = false;
-  };
-}, []);
+    resizeObserver.observe(containerRef.current);
+    window.addEventListener('resize', updateSize);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateSize);
+    };
+  }, []);
+
+  // Fetch both 3D sphere and 2D flat GeoJSON files on mount
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+
+    Promise.all([
+      fetch(`${import.meta.env.BASE_URL}geojson/world_sphere_3d.geojson`).then(r => r.json()),
+      fetch(`${import.meta.env.BASE_URL}geojson/world.geojson`).then(r => r.json())
+    ])
+      .then(([g3d, g2d]: [FeatureCollection, FeatureCollection]) => {
+        if (!isMounted) return;
+
+        // Transform 3D Cartesian coordinates [x, y, z] to Spherical [lon, lat] for D3 projection
+        const converted3DFeatures = g3d.features.map(feature => {
+          const transformedGeom = JSON.parse(JSON.stringify(feature.geometry));
+
+          const convertPoint = ([x, y, z]: number[]) => {
+            const r = Math.sqrt(x * x + y * y + z * z) || 1;
+            const lat = Math.asin(Math.max(-1, Math.min(1, z / r))) * (180 / Math.PI);
+            const lon = Math.atan2(y, x) * (180 / Math.PI);
+            return [lon, lat];
+          };
+
+          const transformCoords = (coords: any): any => {
+            if (typeof coords[0] === 'number') {
+              return convertPoint(coords);
+            }
+            return coords.map(transformCoords);
+          };
+
+          transformedGeom.coordinates = transformCoords(transformedGeom.coordinates);
+
+          return {
+            ...feature,
+            geometry: transformedGeom
+          };
+        });
+
+        setData3D({
+          type: 'FeatureCollection',
+          features: converted3DFeatures
+        });
+        setData2D(g2d);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to load world GeoJSON files:', err);
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Reset view rotation & zoom
   const handleResetView = () => {
@@ -108,10 +141,12 @@ useEffect(() => {
     const currentGeojson = isFlatProjection ? data2D : data3D;
     if (!currentGeojson) return;
 
-    const width = containerRef.current.clientWidth || 800;
-    const height = containerRef.current.clientHeight || 550;
+    const width = dimensions.width || containerRef.current.clientWidth || 800;
+    const height = dimensions.height || containerRef.current.clientHeight || 550;
+    if (width <= 0 || height <= 0) return;
 
     const svg = d3.select(svgRef.current);
+    svg.attr('viewBox', `0 0 ${width} ${height}`);
     svg.selectAll('*').remove();
 
     // Create projections
@@ -309,11 +344,11 @@ useEffect(() => {
       svg.call(dragBehavior as any);
     }
 
-  }, [data3D, data2D, isFlatProjection, rotation, zoomScale, travelRecords, photoRecords, selectedCode]);
+  }, [data3D, data2D, isFlatProjection, rotation, zoomScale, travelRecords, photoRecords, selectedCode, dimensions]);
 
   if (loading) {
     return (
-      <div className="w-full h-full min-h-[500px] bg-[#E6E8E3] flex flex-col items-center justify-center gap-3 text-[#4B5E40]">
+      <div className="w-full h-full min-h-[300px] bg-[#E6E8E3] flex flex-col items-center justify-center gap-3 text-[#4B5E40]">
         <Loader2 className="w-8 h-8 animate-spin" />
         <span className="text-sm font-medium">세계 지도 데이터를 로드하는 중...</span>
       </div>
@@ -321,22 +356,22 @@ useEffect(() => {
   }
 
   return (
-    <div ref={containerRef} className="relative w-full h-full min-h-[500px] bg-[#E6E8E3] overflow-hidden flex items-center justify-center select-none">
+    <div ref={containerRef} className="relative w-full h-full min-h-[300px] bg-[#E6E8E3] overflow-hidden flex items-center justify-center select-none">
       
       {/* Projection Mode & Control Buttons (Top-Right) */}
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-white/80 backdrop-blur-md p-1.5 rounded-xl border border-[#E5E2D9] shadow-sm">
+      <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex items-center gap-1.5 sm:gap-2 bg-white/90 backdrop-blur-md p-1 sm:p-1.5 rounded-xl border border-[#E5E2D9] shadow-sm text-xs">
         <button
           id="btn-toggle-projection"
           onClick={() => setIsFlatProjection(!isFlatProjection)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#4B5E40] hover:bg-[#3d4d34] text-white shadow-xs transition-all cursor-pointer"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-lg text-xs font-semibold bg-[#4B5E40] hover:bg-[#3d4d34] text-white shadow-xs transition-all cursor-pointer whitespace-nowrap"
         >
           {isFlatProjection ? (
             <>
-              <Minimize2 className="w-3.5 h-3.5" /> 🌎 지구본으로 접기
+              <Minimize2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">지구본으로</span> 접기
             </>
           ) : (
             <>
-              <Maximize2 className="w-3.5 h-3.5" /> ⛶ 평면지도로 펼치기
+              <Maximize2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">평면지도로</span> 펼치기
             </>
           )}
         </button>
@@ -407,20 +442,20 @@ useEffect(() => {
       )}
 
       {/* Map Legend & Mode Indicator Overlay */}
-      <div className="absolute bottom-6 left-6 flex items-center gap-6 bg-white/70 backdrop-blur px-4 py-2 rounded-full border border-white/60 shadow-xs text-xs text-gray-700">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-[#CBD3C8] rounded-xs"></div>
-          <span className="text-[11px] text-gray-600 font-medium">미방문</span>
+      <div className="absolute bottom-3 left-3 sm:bottom-6 sm:left-6 flex items-center gap-3 sm:gap-6 bg-white/80 backdrop-blur px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-white/60 shadow-xs text-[10px] sm:text-xs text-gray-700 max-w-[90vw] overflow-x-auto">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-[#CBD3C8] rounded-xs"></div>
+          <span className="text-gray-600 font-medium">미방문</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 bg-[#A8B7A1] rounded-xs"></div>
-          <div className="w-3 h-3 bg-[#8BA184] rounded-xs"></div>
-          <div className="w-3 h-3 bg-[#4B5E40] rounded-xs"></div>
-          <span className="text-[11px] text-gray-600 font-medium ml-1">방문 (진할수록 다수)</span>
+        <div className="flex items-center gap-1 shrink-0">
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-[#A8B7A1] rounded-xs"></div>
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-[#8BA184] rounded-xs"></div>
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-[#4B5E40] rounded-xs"></div>
+          <span className="text-gray-600 font-medium ml-0.5">방문</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-[#D4A373] rounded-xs"></div>
-          <span className="text-[11px] text-gray-600 font-medium">위시리스트</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-[#D4A373] rounded-xs"></div>
+          <span className="text-gray-600 font-medium">위시리스트</span>
         </div>
       </div>
 

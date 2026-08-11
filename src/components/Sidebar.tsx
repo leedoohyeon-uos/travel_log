@@ -9,7 +9,7 @@ import {
   TravelRecord,
   PhotoMeta
 } from '../types';
-import { Search, Plus, Minus, Check, Star, Camera, ChevronRight } from 'lucide-react';
+import { Search, Plus, Minus, Check, Star, Camera, ChevronRight, X } from 'lucide-react';
 
 interface SidebarProps {
   tabMode: TabMode;
@@ -28,6 +28,8 @@ interface SidebarProps {
   onSetStatus: (code: string, type: 'country' | 'region', action: 'visited' | 'wishlist' | 'clear') => void;
   onSelectTarget: (code: string, type: 'country' | 'region') => void;
   selectedCode: string | null;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -46,7 +48,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onUpdateVisitCount,
   onSetStatus,
   onSelectTarget,
-  selectedCode
+  selectedCode,
+  isMobileOpen = false,
+  onCloseMobile
 }) => {
   const continentsList: ContinentFilter[] = [
     '전체',
@@ -87,11 +91,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
   });
 
   return (
-    <aside className="w-full lg:w-[320px] bg-white border-r border-[#E5E2D9] text-[#1A1A1A] flex flex-col h-full overflow-hidden shrink-0">
-      
-      {/* 1. Search Box & Category Chips */}
-      <div className="p-5 border-b border-[#E5E2D9] bg-white space-y-4">
-        <div className="relative">
+    <>
+      {/* Mobile Backdrop */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-30 lg:hidden transition-opacity"
+          onClick={onCloseMobile}
+        />
+      )}
+
+      <aside
+        className={`bg-white border-r border-[#E5E2D9] text-[#1A1A1A] flex flex-col h-full overflow-hidden shrink-0 transition-transform duration-300 ease-in-out
+          fixed lg:relative top-0 left-0 z-40 h-full w-[88%] max-w-[340px] lg:w-[320px] lg:max-w-none shadow-2xl lg:shadow-none
+          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}
+      >
+        {/* 1. Mobile Header & Search Box & Category Chips */}
+        <div className="p-4 sm:p-5 border-b border-[#E5E2D9] bg-white space-y-3 sm:space-y-4">
+          <div className="flex items-center justify-between lg:hidden pb-1 border-b border-gray-100">
+            <span className="text-xs font-bold text-[#4B5E40] flex items-center gap-1.5">
+              📋 {tabMode === 'overseas' ? '국가 목록 및 검색' : '국내 지역 목록 및 검색'}
+            </span>
+            <button
+              onClick={onCloseMobile}
+              className="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="relative">
           <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
           <input
             id="sidebar-search-input"
@@ -356,5 +385,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
     </aside>
-  );
+  </>
+);
 };

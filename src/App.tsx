@@ -27,7 +27,7 @@ import { KoreaMap } from './components/KoreaMap';
 import { PhotoModal } from './components/PhotoModal';
 import { AuthModal } from './components/AuthModal';
 
-import { Globe2, Sparkles } from 'lucide-react';
+import { Globe2, Sparkles, ListFilter } from 'lucide-react';
 
 export default function App() {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
@@ -41,6 +41,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [continentFilter, setContinentFilter] = useState<ContinentFilter>('전체');
   const [koreaFilter, setKoreaFilter] = useState<KoreaFilter>('전체');
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
   // Selected Target
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
@@ -362,10 +363,22 @@ export default function App() {
           onSetStatus={(code, type, action) => handleSetStatus(code, type, action)}
           onSelectTarget={(code, type) => handleSelectTarget(code, type)}
           selectedCode={selectedCode}
+          isMobileOpen={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
         />
 
         {/* Map View Area */}
-        <main className="flex-1 h-full relative overflow-hidden bg-[#E6E8E3] flex flex-col">
+        <main className="flex-1 h-full relative overflow-hidden bg-[#E6E8E3] flex flex-col min-h-0">
+          
+          {/* Mobile Sidebar Open Floating Button */}
+          <button
+            id="btn-open-mobile-sidebar"
+            onClick={() => setIsMobileSidebarOpen(true)}
+            className="lg:hidden absolute top-3 left-3 z-20 bg-white/90 backdrop-blur-md text-[#4B5E40] border border-[#E5E2D9] px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 hover:bg-white cursor-pointer"
+          >
+            <ListFilter className="w-3.5 h-3.5" />
+            <span>검색 / 목록</span>
+          </button>
           
           {/*
             [실제 지도 적용 안내]:
