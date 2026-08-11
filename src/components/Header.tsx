@@ -41,7 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex flex-col">
             <span className="text-[10px] sm:text-[11px] uppercase tracking-widest text-gray-400 font-medium">너는 어디까지 가봤니?</span>
             <h1 className="text-lg sm:text-2xl font-serif italic text-[#3A3A3A] tracking-tight flex items-center gap-2">
-              이두현의 travel log
+              Doo's travel log
             </h1>
           </div>
 
@@ -69,7 +69,7 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              국내<span className="hidden sm:inline"> (세부 시·군·구)</span>
+              국내
             </button>
           </div>
         </div>
@@ -176,7 +176,7 @@ export const Header: React.FC<HeaderProps> = ({
                   className="flex items-center gap-1.5 bg-[#4B5E40] hover:bg-[#3d4d34] text-white text-xs px-3.5 py-1.5 rounded-lg font-bold shadow-xs transition-colors"
                 >
                   <LogIn className="w-3.5 h-3.5" />
-                  로그인 / 회원가입
+                  Login
                 </button>
               </div>
             )}
