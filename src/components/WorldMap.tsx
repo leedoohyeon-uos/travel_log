@@ -41,59 +41,60 @@ export const WorldMap: React.FC<WorldMapProps> = ({
   const [tooltip, setTooltip] = useState<MapTooltipData | null>(null);
 
   // Fetch both 3D sphere and 2D flat GeoJSON files on mount
-  useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
+useEffect(() => {
+  let isMounted = true;
+  setLoading(true);
 
-    Promise.all([
-      fetch('${import.meta.env.BASE_URL}geojson/world_sphere_3d.geojson').then(r => r.json()),
-      fetch('${import.meta.env.BASE_URL}geojson/world.geojson').then(r => r.json())
-    ])
-      .then(([g3d, g2d]: [FeatureCollection, FeatureCollection]) => {
-        if (!isMounted) return;
+  Promise.all([
+    // 👇 작은따옴표(')를 백틱(`)으로 변경!
+    fetch(`${import.meta.env.BASE_URL}geojson/world_sphere_3d.geojson`).then(r => r.json()),
+    fetch(`${import.meta.env.BASE_URL}geojson/world.geojson`).then(r => r.json())
+  ])
+    .then(([g3d, g2d]: [FeatureCollection, FeatureCollection]) => {
+      if (!isMounted) return;
 
-        // Transform 3D Cartesian coordinates [x, y, z] to Spherical [lon, lat] for D3 projection
-        const converted3DFeatures = g3d.features.map(feature => {
-          const transformedGeom = JSON.parse(JSON.stringify(feature.geometry));
+      // Transform 3D Cartesian coordinates [x, y, z] to Spherical [lon, lat] for D3 projection
+      const converted3DFeatures = g3d.features.map(feature => {
+        const transformedGeom = JSON.parse(JSON.stringify(feature.geometry));
 
-          const convertPoint = ([x, y, z]: number[]) => {
-            const r = Math.sqrt(x * x + y * y + z * z) || 1;
-            const lat = Math.asin(Math.max(-1, Math.min(1, z / r))) * (180 / Math.PI);
-            const lon = Math.atan2(y, x) * (180 / Math.PI);
-            return [lon, lat];
-          };
+        const convertPoint = ([x, y, z]: number[]) => {
+          const r = Math.sqrt(x * x + y * y + z * z) || 1;
+          const lat = Math.asin(Math.max(-1, Math.min(1, z / r))) * (180 / Math.PI);
+          const lon = Math.atan2(y, x) * (180 / Math.PI);
+          return [lon, lat];
+        };
 
-          const transformCoords = (coords: any): any => {
-            if (typeof coords[0] === 'number') {
-              return convertPoint(coords);
-            }
-            return coords.map(transformCoords);
-          };
+        const transformCoords = (coords: any): any => {
+          if (typeof coords[0] === 'number') {
+            return convertPoint(coords);
+          }
+          return coords.map(transformCoords);
+        };
 
-          transformedGeom.coordinates = transformCoords(transformedGeom.coordinates);
+        transformedGeom.coordinates = transformCoords(transformedGeom.coordinates);
 
-          return {
-            ...feature,
-            geometry: transformedGeom
-          };
-        });
-
-        setData3D({
-          type: 'FeatureCollection',
-          features: converted3DFeatures
-        });
-        setData2D(g2d);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('Failed to load world GeoJSON files:', err);
-        if (isMounted) setLoading(false);
+        return {
+          ...feature,
+          geometry: transformedGeom
+        };
       });
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+      setData3D({
+        type: 'FeatureCollection',
+        features: converted3DFeatures
+      });
+      setData2D(g2d);
+      setLoading(false);
+    })
+    .catch(err => {
+      console.error('Failed to load world GeoJSON files:', err);
+      if (isMounted) setLoading(false);
+    });
+
+  return () => {
+    isMounted = false;
+  };
+}, []);
 
   // Reset view rotation & zoom
   const handleResetView = () => {
