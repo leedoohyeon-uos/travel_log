@@ -1,9 +1,10 @@
 import React from 'react';
 import { TabMode, StatusMode } from '../types';
 import { TOTAL_COUNTRIES_COUNT } from '../data/country-data';
-import { TOTAL_KOREA_DETAILED_COUNT, TOTAL_KOREA_PROVINCES_COUNT } from '../data/korea-data';
+import { TOTAL_KOREA_DETAILED_COUNT } from '../data/korea-data';
 import { User } from 'firebase/auth';
-import { LogIn, LogOut, Globe2, MapPin, CheckCircle2, Star, Eye, Camera, Sparkles } from 'lucide-react';
+import { UserAccountRegistryDoc } from '../services/adminService';
+import { LogIn, LogOut, Globe2, MapPin, CheckCircle2, Star, Eye, Camera, Sparkles, Shield, Users } from 'lucide-react';
 
 interface HeaderProps {
   tabMode: TabMode;
@@ -13,6 +14,10 @@ interface HeaderProps {
   visitedCount: number;
   wishlistCount: number;
   currentUser: (User & { isGuest?: boolean }) | null;
+  isAdmin?: boolean;
+  userRegistryList?: UserAccountRegistryDoc[];
+  adminSelectedEmail?: string;
+  onSelectAdminUser?: (email: string) => void;
   onOpenAuthModal: () => void;
   onLogout: () => void;
 }
@@ -25,6 +30,10 @@ export const Header: React.FC<HeaderProps> = ({
   visitedCount,
   wishlistCount,
   currentUser,
+  isAdmin = false,
+  userRegistryList = [],
+  adminSelectedEmail = '',
+  onSelectAdminUser,
   onOpenAuthModal,
   onLogout
 }) => {
@@ -41,7 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex flex-col">
             <span className="text-[10px] sm:text-[11px] uppercase tracking-widest text-gray-400 font-medium">너는 어디까지 가봤니?</span>
             <h1 className="text-lg sm:text-2xl font-serif italic text-[#3A3A3A] tracking-tight flex items-center gap-2">
-              Doo's travel log
+              이두현의 travel log
             </h1>
           </div>
 
@@ -69,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              국내
+              국내<span className="hidden sm:inline"> (세부 시·군·구)</span>
             </button>
           </div>
         </div>
@@ -130,7 +139,28 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Progress Display & Account Control */}
-        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-[#E5E2D9] pt-2 md:pt-0">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-[#E5E2D9] pt-2 md:pt-0">
+          
+          {/* Admin User Selector */}
+          {isAdmin && (
+            <div className="flex items-center gap-1.5 bg-amber-50 text-amber-900 p-1 px-2.5 rounded-xl border border-amber-300 font-bold text-xs shadow-2xs">
+              <Users className="w-4 h-4 text-amber-700 shrink-0" />
+              <span className="shrink-0 text-amber-800">사용자:</span>
+              <select
+                id="select-admin-user"
+                value={adminSelectedEmail}
+                onChange={(e) => onSelectAdminUser?.(e.target.value)}
+                className="bg-white text-gray-900 font-bold border border-amber-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer max-w-[160px] truncate"
+              >
+                {userRegistryList.map(u => (
+                  <option key={u.email} value={u.email}>
+                    {u.email} {u.email === '1234@gmail.com' ? '(기본 계정)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="flex flex-col text-right">
             <div className="text-xs font-bold text-gray-700 flex items-center justify-end gap-2">
               <span className="text-[#4B5E40]">✓ {visitedCount} / {totalCount}{unitLabel}</span>
@@ -150,9 +180,13 @@ export const Header: React.FC<HeaderProps> = ({
           <div>
             {currentUser ? (
               <div className="flex items-center gap-2">
-                {currentUser.isGuest ? (
+                {isAdmin ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] bg-red-100 text-red-800 font-bold px-2 py-1 rounded-md border border-red-300">
+                    <Shield className="w-3 h-3 text-red-600" /> 관리자 모드
+                  </span>
+                ) : currentUser.isGuest ? (
                   <span className="inline-flex items-center gap-1 text-[11px] bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded-md border border-amber-300">
-                    <Sparkles className="w-3 h-3 text-amber-600" /> 테스트 계정 (종료 시 초기화)
+                    <Sparkles className="w-3 h-3 text-amber-600" /> 테스트 계정 (종료 시 원상복구)
                   </span>
                 ) : (
                   <span className="text-xs text-gray-500 max-w-[100px] truncate hidden sm:inline" title={currentUser.email || ''}>
@@ -162,7 +196,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   id="btn-logout"
                   onClick={onLogout}
-                  className="flex items-center gap-1 bg-white hover:bg-gray-100 text-gray-700 text-xs px-3 py-1.5 rounded-lg border border-[#E5E2D9] font-bold transition-colors"
+                  className="flex items-center gap-1 bg-white hover:bg-gray-100 text-gray-700 text-xs px-3 py-1.5 rounded-lg border border-[#E5E2D9] font-bold transition-colors cursor-pointer"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">{currentUser.isGuest ? '테스트 종료' : 'LOGOUT'}</span>
@@ -173,10 +207,10 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   id="btn-open-login"
                   onClick={onOpenAuthModal}
-                  className="flex items-center gap-1.5 bg-[#4B5E40] hover:bg-[#3d4d34] text-white text-xs px-3.5 py-1.5 rounded-lg font-bold shadow-xs transition-colors"
+                  className="flex items-center gap-1.5 bg-[#4B5E40] hover:bg-[#3d4d34] text-white text-xs px-3.5 py-1.5 rounded-lg font-bold shadow-xs transition-colors cursor-pointer"
                 >
                   <LogIn className="w-3.5 h-3.5" />
-                  Login
+                  로그인 / 회원가입
                 </button>
               </div>
             )}

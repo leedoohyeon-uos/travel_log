@@ -8,6 +8,12 @@ import {
   deletePhoto
 } from './services/dbService';
 import { uploadTravelPhoto } from './services/photoService';
+import {
+  ADMIN_EMAIL,
+  DEFAULT_TEST_EMAIL,
+  fetchAllUserCredentials,
+  UserAccountRegistryDoc
+} from './services/adminService';
 
 import {
   TabMode,
@@ -27,14 +33,20 @@ import { KoreaMap } from './components/KoreaMap';
 import { PhotoModal } from './components/PhotoModal';
 import { AuthModal } from './components/AuthModal';
 import { HelpModal } from './components/HelpModal';
+import { AdminUserInspectorBadge } from './components/AdminUserInspectorBadge';
 
-import { Globe2, Sparkles, ListFilter, HelpCircle } from 'lucide-react';
+import { Globe2, Sparkles, ListFilter, HelpCircle, AlertCircle } from 'lucide-react';
 
 export default function App() {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [guestUser, setGuestUser] = useState<(User & { isGuest: boolean }) | null>(null);
   const [authInitialized, setAuthInitialized] = useState<boolean>(false);
   const [dataLoading, setDataLoading] = useState<boolean>(false);
+
+  // Admin Mode State
+  const [userRegistryList, setUserRegistryList] = useState<UserAccountRegistryDoc[]>([]);
+  const [adminSelectedEmail, setAdminSelectedEmail] = useState<string>('');
+  const [readOnlyNotice, setReadOnlyNotice] = useState<string | null>(null);
 
   // App UI State
   const [tabMode, setTabMode] = useState<TabMode>('overseas');
@@ -57,6 +69,7 @@ export default function App() {
   const [photoRecords, setPhotoRecords] = useState<Record<string, PhotoMeta[]>>({});
 
   const currentUser = guestUser || firebaseUser;
+  const isAdmin = firebaseUser?.email === ADMIN_EMAIL;
 
   // 1. Subscribe to Firebase Auth
   useEffect(() => {
@@ -64,7 +77,7 @@ export default function App() {
       setFirebaseUser(user);
       setAuthInitialized(true);
 
-      if (user && !guestUser) {
+      if (user && user.email !== ADMIN_EMAIL && !guestUser) {
         setDataLoading(true);
         const data = await fetchUserTravelData(user.uid);
         setTravelRecords({ ...data.countries, ...data.regions });
@@ -79,12 +92,56 @@ export default function App() {
     return () => unsubscribe();
   }, [guestUser]);
 
-  // 2. Start Guest Test Account Session
+  // 2. Fetch User Registry for Admin Mode
+  useEffect(() => {
+    if (isAdmin) {
+      (async () => {
+        const list = await fetchAllUserCredentials();
+        setUserRegistryList(list);
+        if (!adminSelectedEmail && list.length > 0) {
+          const defaultAccount = list.find(u => u.email === DEFAULT_TEST_EMAIL) || list[0];
+          setAdminSelectedEmail(defaultAccount.email);
+        }
+      })();
+    }
+  }, [isAdmin]);
+
+  // 3. Load travel records for selected user in Admin Mode
+  useEffect(() => {
+    if (isAdmin && adminSelectedEmail) {
+      (async () => {
+        setDataLoading(true);
+        const targetUser = userRegistryList.find(u => u.email === adminSelectedEmail);
+        const targetUid = targetUser?.uid || 'test_user_1234_uid';
+
+        const data = await fetchUserTravelData(targetUid);
+        const hasData = Object.keys(data.countries).length > 0 || Object.keys(data.regions).length > 0;
+
+        if (hasData) {
+          setTravelRecords({ ...data.countries, ...data.regions });
+          setPhotoRecords({ ...data.countryPhotos, ...data.regionPhotos });
+        } else {
+          // Provide initial sample records if user profile has no data yet
+          setTravelRecords({
+            'JPN': { visited: true, visitCount: 2, wishlist: false, updatedAt: Date.now() },
+            'FRA': { visited: true, visitCount: 1, wishlist: false, updatedAt: Date.now() },
+            'USA': { visited: false, visitCount: 0, wishlist: true, updatedAt: Date.now() },
+            'SEOUL_GANGNAM': { visited: true, visitCount: 3, wishlist: false, updatedAt: Date.now() },
+            'GANGWON_GANGNEUNG': { visited: true, visitCount: 1, wishlist: false, updatedAt: Date.now() }
+          });
+          setPhotoRecords({});
+        }
+        setDataLoading(false);
+      })();
+    }
+  }, [isAdmin, adminSelectedEmail, userRegistryList]);
+
+  // 4. Start Guest Test Account Session (1234@gmail.com)
   const handleStartTestGuestSession = () => {
     const fakeGuest = {
-      uid: 'guest_test_session_' + Date.now(),
-      email: 'guest@travel-log.test',
-      displayName: '테스트 계정',
+      uid: 'guest_test_session_1234_' + Date.now(),
+      email: DEFAULT_TEST_EMAIL,
+      displayName: '테스트 계정 (1234@gmail.com)',
       isGuest: true
     } as any;
 
@@ -104,7 +161,7 @@ export default function App() {
     setIsAuthModalOpen(false);
   };
 
-  // 3. Logout / Exit Session
+  // 5. Logout / Exit Session
   const handleLogout = async () => {
     if (guestUser) {
       setGuestUser(null);
@@ -112,7 +169,18 @@ export default function App() {
       setPhotoRecords({});
     } else {
       await logoutUser();
+      setAdminSelectedEmail('');
     }
+  };
+
+  // Guard for Admin Mode read-only state
+  const isReadOnlyForbidden = (): boolean => {
+    if (isAdmin) {
+      setReadOnlyNotice("🔒 관리자 모드에서는 사용자 데이터를 조회(Read-only)만 할 수 있으며, 수정은 불가능합니다.");
+      setTimeout(() => setReadOnlyNotice(null), 3500);
+      return true;
+    }
+    return false;
   };
 
   // Calculate visited & wishlist totals for Header counter
@@ -176,6 +244,7 @@ export default function App() {
 
   // Update Visit Count (+1 or -1)
   const handleUpdateVisitCount = async (code: string, type: 'country' | 'region', delta: number) => {
+    if (isReadOnlyForbidden()) return;
     if (!ensureAuthenticated() || !currentUser) return;
 
     if (currentUser.isGuest) {
@@ -209,6 +278,7 @@ export default function App() {
     type: 'country' | 'region',
     action: 'visited' | 'wishlist' | 'clear'
   ) => {
+    if (isReadOnlyForbidden()) return;
     if (!ensureAuthenticated() || !currentUser) return;
 
     if (currentUser.isGuest) {
@@ -236,6 +306,7 @@ export default function App() {
 
   // Upload Photo
   const handleUploadPhoto = async (file: File) => {
+    if (isReadOnlyForbidden()) return;
     if (!ensureAuthenticated() || !currentUser || !selectedCode) return;
     const targetType = tabMode === 'overseas' ? 'country' : 'region';
 
@@ -266,6 +337,7 @@ export default function App() {
 
   // Delete Photo
   const handleDeletePhoto = async (photoId: string, storagePath: string) => {
+    if (isReadOnlyForbidden()) return;
     if (!ensureAuthenticated() || !currentUser || !selectedCode) return;
     const targetType = tabMode === 'overseas' ? 'country' : 'region';
 
@@ -297,6 +369,10 @@ export default function App() {
 
   const selectedPhotos = selectedCode ? photoRecords[selectedCode] || [] : [];
 
+  const currentAdminInspectedUser = isAdmin
+    ? userRegistryList.find(u => u.email === adminSelectedEmail) || null
+    : null;
+
   // Loading Screen
   if (!authInitialized || dataLoading) {
     return (
@@ -322,26 +398,43 @@ export default function App() {
         visitedCount={visitedCount}
         wishlistCount={wishlistCount}
         currentUser={currentUser}
+        isAdmin={isAdmin}
+        userRegistryList={userRegistryList}
+        adminSelectedEmail={adminSelectedEmail}
+        onSelectAdminUser={(email) => setAdminSelectedEmail(email)}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
       />
 
       {/* Guest Banner Notice */}
       {currentUser?.isGuest && (
-        <div className="bg-amber-100 border-b border-amber-300 text-amber-900 text-xs px-6 py-2 flex items-center justify-between font-medium">
+        <div className="bg-amber-100 border-b border-amber-300 text-amber-900 text-xs px-6 py-2 flex items-center justify-between font-medium z-10 shrink-0">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-amber-600 animate-pulse shrink-0" />
             <span>
-              <strong>🧪 테스트용 계정 접속 중:</strong> 이 화면을 닫거나 종료하면 작성한 테스트 기록이 초기화됩니다.
+              <strong>🧪 테스트용 계정 (1234@gmail.com) 접속 중:</strong> 종료 시 입력한 테스트 기록이 초기화됩니다 (원상복구).
             </span>
           </div>
           <button
             onClick={handleLogout}
-            className="text-amber-900 underline hover:text-amber-950 font-bold ml-4"
+            className="text-amber-900 underline hover:text-amber-950 font-bold ml-4 cursor-pointer"
           >
             테스트 종료
           </button>
         </div>
+      )}
+
+      {/* Read-only Toast Notice for Admin */}
+      {readOnlyNotice && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-red-800 text-white font-bold text-xs sm:text-sm px-5 py-3 rounded-2xl shadow-2xl border border-red-400 flex items-center gap-2.5 animate-bounce max-w-md text-center">
+          <AlertCircle className="w-5 h-5 text-amber-300 shrink-0" />
+          <span>{readOnlyNotice}</span>
+        </div>
+      )}
+
+      {/* Admin User Inspector Badge (Top Right) */}
+      {isAdmin && (
+        <AdminUserInspectorBadge selectedUser={currentAdminInspectedUser} />
       )}
 
       {/* Main Content Area (Sidebar + Map) */}
@@ -382,14 +475,6 @@ export default function App() {
             <span>검색 / 목록</span>
           </button>
           
-          {/*
-            [실제 지도 적용 안내]:
-            현재 해외/국내 탭 선택에 따라 WorldMap 및 KoreaMap이 직접 렌더링됩니다.
-            향후 실제 지도 데이터나 외부 지도 API (예: Google Maps, Naver Maps, Kakao Maps, Leaflet 등)
-            연동 시 아래 WorldMap 또는 KoreaMap 컴포넌트 내부의 GeoJSON/Tile 로직 또는
-            지도 SDK 컴포넌트로 교체해 주시면 됩니다.
-            예: // 실제 지도 적용 시 이 부분을 실제 지도 데이터/API로 교체
-          */}
           {tabMode === 'overseas' ? (
             <WorldMap
               statusMode={statusMode}

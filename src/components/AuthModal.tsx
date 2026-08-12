@@ -101,7 +101,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <div className="flex flex-col text-left">
               <span className="text-xs font-bold">🧪 테스트용 계정으로 접속</span>
               <span className="text-[10px] text-gray-200 font-normal">
-                별도 회원가입 없이 바로 지도 및 클릭 기능 체험 (종료 시 자동 초기화)
+                1234@gmail.com 계정으로 기능 체험 (종료 시 시작 전 상태로 원상복구)
               </span>
             </div>
           </button>
