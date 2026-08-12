@@ -1,76 +1,112 @@
 import { db } from "../firebase-config";
-import { collection, doc, setDoc, getDocs } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc } from "firebase/firestore";
 
-export interface UserAccountRegistryDoc {
+export type UserRole = 'admin' | 'trial' | 'user';
+
+export interface UserProfileDoc {
   uid: string;
   email: string;
+  role: UserRole;
   password?: string;
+  createdAt?: number;
   updatedAt?: number;
 }
 
-export const ADMIN_EMAIL = "0216top@uos.ac.kr";
-export const ADMIN_PASSWORD = "dlengus0216!";
-export const DEFAULT_TEST_EMAIL = "1234@gmail.com";
-export const DEFAULT_TEST_PASSWORD = "123456";
-
-// Pre-seeded fallback user accounts for Admin inspection
-export const PRESEEDED_USER_ACCOUNTS: UserAccountRegistryDoc[] = [
-  {
-    email: "1234@gmail.com",
-    password: "123456",
-    uid: "test_user_1234_uid"
-  },
-  {
-    email: "user1@example.com",
-    password: "user1234",
-    uid: "user1_uid"
-  },
-  {
-    email: "traveler@gmail.com",
-    password: "travel2026",
-    uid: "traveler_uid"
+/**
+ * Fetch a user profile document from Firestore 'users/{uid}'
+ */
+export async function fetchUserProfile(uid: string): Promise<UserProfileDoc | null> {
+  if (!uid) return null;
+  try {
+    const userRef = doc(db, "users", uid);
+    const snap = await getDoc(userRef);
+    if (snap.exists()) {
+      const data = snap.data() as UserProfileDoc;
+      return {
+        uid,
+        email: data.email || '',
+        role: data.role || 'user',
+        password: data.password || '',
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt
+      };
+    }
+  } catch (err) {
+    console.error("Error fetching user profile from Firestore:", err);
   }
-];
+  return null;
+}
 
 /**
- * Register or update user credentials in Firestore user registry for Admin review.
+ * Ensure user document exists in Firestore 'users/{uid}'.
+ * If it doesn't exist, create default document with role: 'user'.
  */
-export async function registerUserCredentials(email: string, password?: string, uid?: string): Promise<void> {
-  if (!email || email === ADMIN_EMAIL) return;
+export async function ensureUserProfile(
+  uid: string,
+  email: string,
+  password?: string
+): Promise<UserProfileDoc> {
+  const userRef = doc(db, "users", uid);
   try {
-    const docId = email.replace(/[@.]/g, '_');
-    const userDocRef = doc(db, "user_registry", docId);
-    await setDoc(userDocRef, {
-      email,
-      password: password || "123456",
-      uid: uid || docId,
-      updatedAt: Date.now()
-    }, { merge: true });
+    const snap = await getDoc(userRef);
+    if (snap.exists()) {
+      const data = snap.data() as UserProfileDoc;
+      if (password && !data.password) {
+        await setDoc(userRef, { password }, { merge: true });
+      }
+      return {
+        uid,
+        email: data.email || email,
+        role: data.role || 'user',
+        password: data.password || password || '',
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt
+      };
+    } else {
+      const newProfile: UserProfileDoc = {
+        uid,
+        email,
+        role: 'user',
+        password: password || '',
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      await setDoc(userRef, newProfile);
+      return newProfile;
+    }
   } catch (err) {
-    console.warn("User registry sync warning:", err);
+    console.warn("Could not ensure user profile in Firestore:", err);
+    return {
+      uid,
+      email,
+      role: 'user',
+      password: password || ''
+    };
   }
 }
 
 /**
- * Fetch all registered user accounts for Admin user selector.
+ * Fetch all registered user documents from Firestore 'users' collection for Admin view.
  */
-export async function fetchAllUserCredentials(): Promise<UserAccountRegistryDoc[]> {
+export async function fetchAllUserProfiles(): Promise<UserProfileDoc[]> {
   try {
-    const registryRef = collection(db, "user_registry");
-    const snap = await getDocs(registryRef);
-    const fetchedList: UserAccountRegistryDoc[] = [];
+    const usersRef = collection(db, "users");
+    const snap = await getDocs(usersRef);
+    const fetchedList: UserProfileDoc[] = [];
     snap.forEach(d => {
-      fetchedList.push(d.data() as UserAccountRegistryDoc);
+      const data = d.data();
+      fetchedList.push({
+        uid: d.id,
+        email: data.email || 'No email',
+        role: data.role || 'user',
+        password: data.password || '',
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt
+      });
     });
-
-    // Merge with preseeded accounts
-    const combinedMap = new Map<string, UserAccountRegistryDoc>();
-    PRESEEDED_USER_ACCOUNTS.forEach(u => combinedMap.set(u.email, u));
-    fetchedList.forEach(u => combinedMap.set(u.email, u));
-
-    return Array.from(combinedMap.values());
+    return fetchedList;
   } catch (err) {
-    console.warn("Could not fetch user registry from Firestore, using default accounts:", err);
-    return PRESEEDED_USER_ACCOUNTS;
+    console.error("Error fetching user list from Firestore users collection:", err);
+    return [];
   }
 }

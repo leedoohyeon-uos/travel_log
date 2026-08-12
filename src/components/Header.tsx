@@ -3,7 +3,7 @@ import { TabMode, StatusMode } from '../types';
 import { TOTAL_COUNTRIES_COUNT } from '../data/country-data';
 import { TOTAL_KOREA_DETAILED_COUNT } from '../data/korea-data';
 import { User } from 'firebase/auth';
-import { UserAccountRegistryDoc } from '../services/adminService';
+import { UserProfileDoc } from '../services/adminService';
 import { LogIn, LogOut, Globe2, MapPin, CheckCircle2, Star, Eye, Camera, Sparkles, Shield, Users } from 'lucide-react';
 
 interface HeaderProps {
@@ -14,10 +14,10 @@ interface HeaderProps {
   visitedCount: number;
   wishlistCount: number;
   currentUser: (User & { isGuest?: boolean }) | null;
-  isAdmin?: boolean;
-  userRegistryList?: UserAccountRegistryDoc[];
-  adminSelectedEmail?: string;
-  onSelectAdminUser?: (email: string) => void;
+  userRole?: 'admin' | 'trial' | 'user';
+  userRegistryList?: UserProfileDoc[];
+  adminSelectedUid?: string;
+  onSelectAdminUser?: (uid: string) => void;
   onOpenAuthModal: () => void;
   onLogout: () => void;
 }
@@ -30,9 +30,9 @@ export const Header: React.FC<HeaderProps> = ({
   visitedCount,
   wishlistCount,
   currentUser,
-  isAdmin = false,
+  userRole = 'user',
   userRegistryList = [],
-  adminSelectedEmail = '',
+  adminSelectedUid = '',
   onSelectAdminUser,
   onOpenAuthModal,
   onLogout
@@ -40,6 +40,7 @@ export const Header: React.FC<HeaderProps> = ({
   const totalCount = tabMode === 'overseas' ? TOTAL_COUNTRIES_COUNT : TOTAL_KOREA_DETAILED_COUNT;
   const progressPercent = Math.round((visitedCount / totalCount) * 100) || 0;
   const unitLabel = tabMode === 'overseas' ? '개국' : '개 세부 지역';
+  const isAdmin = userRole === 'admin';
 
   return (
     <header className="bg-white border-b border-[#E5E2D9] text-[#1A1A1A] px-3 sm:px-6 py-2 sm:py-3 sticky top-0 z-30 shadow-xs shrink-0">
@@ -59,7 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="btn-tab-overseas"
               onClick={() => setTabMode('overseas')}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1 sm:py-1.5 rounded text-xs font-bold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1 sm:py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
                 tabMode === 'overseas'
                   ? 'bg-[#4B5E40] text-white shadow-xs'
                   : 'text-[#4B5E40] hover:bg-gray-200/60'
@@ -71,7 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="btn-tab-domestic"
               onClick={() => setTabMode('domestic')}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1 sm:py-1.5 rounded text-xs font-bold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1 sm:py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
                 tabMode === 'domestic'
                   ? 'bg-[#4B5E40] text-white shadow-xs'
                   : 'text-[#4B5E40] hover:bg-gray-200/60'
@@ -88,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             id="status-mode-visited"
             onClick={() => setStatusMode('visited')}
-            className={`flex items-center gap-1.5 px-5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+            className={`flex items-center gap-1.5 px-4 sm:px-5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               statusMode === 'visited'
                 ? 'bg-white text-[#1A1A1A] shadow-xs border border-gray-200/80'
                 : 'text-gray-500 hover:bg-white/50'
@@ -101,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             id="status-mode-wishlist"
             onClick={() => setStatusMode('wishlist')}
-            className={`flex items-center gap-1.5 px-5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+            className={`flex items-center gap-1.5 px-4 sm:px-5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               statusMode === 'wishlist'
                 ? 'bg-white text-[#1A1A1A] shadow-xs border border-gray-200/80'
                 : 'text-gray-500 hover:bg-white/50'
@@ -114,7 +115,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             id="status-mode-all"
             onClick={() => setStatusMode('all')}
-            className={`flex items-center gap-1.5 px-5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+            className={`flex items-center gap-1.5 px-4 sm:px-5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               statusMode === 'all'
                 ? 'bg-white text-[#1A1A1A] shadow-xs border border-gray-200/80'
                 : 'text-gray-500 hover:bg-white/50'
@@ -127,7 +128,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             id="status-mode-photo"
             onClick={() => setStatusMode('photo')}
-            className={`flex items-center gap-1.5 px-5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+            className={`flex items-center gap-1.5 px-4 sm:px-5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               statusMode === 'photo'
                 ? 'bg-white text-[#1A1A1A] shadow-xs border border-gray-200/80'
                 : 'text-gray-500 hover:bg-white/50'
@@ -148,13 +149,13 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="shrink-0 text-amber-800">사용자:</span>
               <select
                 id="select-admin-user"
-                value={adminSelectedEmail}
+                value={adminSelectedUid}
                 onChange={(e) => onSelectAdminUser?.(e.target.value)}
-                className="bg-white text-gray-900 font-bold border border-amber-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer max-w-[160px] truncate"
+                className="bg-white text-gray-900 font-bold border border-amber-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer max-w-[170px] truncate"
               >
                 {userRegistryList.map(u => (
-                  <option key={u.email} value={u.email}>
-                    {u.email} {u.email === '1234@gmail.com' ? '(기본 계정)' : ''}
+                  <option key={u.uid} value={u.uid}>
+                    {u.email} ({u.role})
                   </option>
                 ))}
               </select>
@@ -184,12 +185,12 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="inline-flex items-center gap-1 text-[11px] bg-red-100 text-red-800 font-bold px-2 py-1 rounded-md border border-red-300">
                     <Shield className="w-3 h-3 text-red-600" /> 관리자 모드
                   </span>
-                ) : currentUser.isGuest ? (
+                ) : userRole === 'trial' || currentUser.isGuest ? (
                   <span className="inline-flex items-center gap-1 text-[11px] bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded-md border border-amber-300">
-                    <Sparkles className="w-3 h-3 text-amber-600" /> 테스트 계정 (종료 시 원상복구)
+                    <Sparkles className="w-3 h-3 text-amber-600" /> 체험 계정
                   </span>
                 ) : (
-                  <span className="text-xs text-gray-500 max-w-[100px] truncate hidden sm:inline" title={currentUser.email || ''}>
+                  <span className="text-xs text-gray-500 max-w-[120px] truncate hidden sm:inline" title={currentUser.email || ''}>
                     {currentUser.email}
                   </span>
                 )}

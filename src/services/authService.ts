@@ -7,13 +7,7 @@ import {
   AuthError
 } from "firebase/auth";
 import { auth } from "../firebase-config";
-import {
-  ADMIN_EMAIL,
-  ADMIN_PASSWORD,
-  DEFAULT_TEST_EMAIL,
-  DEFAULT_TEST_PASSWORD,
-  registerUserCredentials
-} from "./adminService";
+import { ensureUserProfile } from "./adminService";
 
 export function subscribeToAuthChanges(callback: (user: User | null) => void) {
   return onAuthStateChanged(auth, callback);
@@ -21,8 +15,8 @@ export function subscribeToAuthChanges(callback: (user: User | null) => void) {
 
 export async function signUpUser(email: string, pass: string): Promise<User> {
   try {
-    const credential = await createUserWithEmailAndPassword(auth, email, pass);
-    await registerUserCredentials(email, pass, credential.user.uid);
+    const credential = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+    await ensureUserProfile(credential.user.uid, email.trim(), pass);
     return credential.user;
   } catch (error) {
     const err = error as AuthError;
@@ -32,53 +26,9 @@ export async function signUpUser(email: string, pass: string): Promise<User> {
 
 export async function signInUser(email: string, pass: string): Promise<User> {
   const trimmedEmail = email.trim();
-
-  // Admin credentials special check
-  if (trimmedEmail === ADMIN_EMAIL && pass === ADMIN_PASSWORD) {
-    try {
-      const credential = await signInWithEmailAndPassword(auth, trimmedEmail, pass);
-      return credential.user;
-    } catch (err: any) {
-      // Auto-create admin account in Firebase Auth if not present
-      try {
-        const credential = await createUserWithEmailAndPassword(auth, trimmedEmail, pass);
-        return credential.user;
-      } catch {
-        // Fallback fake User object if Firebase Auth prevents creation
-        return {
-          uid: 'admin_root_uid',
-          email: ADMIN_EMAIL,
-          displayName: '관리자'
-        } as User;
-      }
-    }
-  }
-
-  // 1234@gmail.com default account special check
-  if (trimmedEmail === DEFAULT_TEST_EMAIL && pass === DEFAULT_TEST_PASSWORD) {
-    try {
-      const credential = await signInWithEmailAndPassword(auth, trimmedEmail, pass);
-      await registerUserCredentials(trimmedEmail, pass, credential.user.uid);
-      return credential.user;
-    } catch (err: any) {
-      try {
-        const credential = await createUserWithEmailAndPassword(auth, trimmedEmail, pass);
-        await registerUserCredentials(trimmedEmail, pass, credential.user.uid);
-        return credential.user;
-      } catch {
-        // Fallback fake User object
-        return {
-          uid: 'user_1234_direct_uid',
-          email: DEFAULT_TEST_EMAIL,
-          displayName: '일반사용자 (1234)'
-        } as User;
-      }
-    }
-  }
-
   try {
     const credential = await signInWithEmailAndPassword(auth, trimmedEmail, pass);
-    await registerUserCredentials(trimmedEmail, pass, credential.user.uid);
+    await ensureUserProfile(credential.user.uid, trimmedEmail, pass);
     return credential.user;
   } catch (error) {
     const err = error as AuthError;

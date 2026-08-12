@@ -9,10 +9,10 @@ import {
 } from './services/dbService';
 import { uploadTravelPhoto } from './services/photoService';
 import {
-  ADMIN_EMAIL,
-  DEFAULT_TEST_EMAIL,
-  fetchAllUserCredentials,
-  UserAccountRegistryDoc
+  fetchUserProfile,
+  fetchAllUserProfiles,
+  UserProfileDoc,
+  UserRole
 } from './services/adminService';
 
 import {
@@ -24,7 +24,7 @@ import {
   PhotoMeta
 } from './types';
 import { WORLD_COUNTRIES, getCountryByCode } from './data/country-data';
-import { KOREA_REGIONS, KOREA_PROVINCES, getKoreaRegionByCode } from './data/korea-data';
+import { KOREA_REGIONS, getKoreaRegionByCode } from './data/korea-data';
 
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -39,13 +39,15 @@ import { Globe2, Sparkles, ListFilter, HelpCircle, AlertCircle } from 'lucide-re
 
 export default function App() {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfileDoc | null>(null);
   const [guestUser, setGuestUser] = useState<(User & { isGuest: boolean }) | null>(null);
   const [authInitialized, setAuthInitialized] = useState<boolean>(false);
   const [dataLoading, setDataLoading] = useState<boolean>(false);
 
   // Admin Mode State
-  const [userRegistryList, setUserRegistryList] = useState<UserAccountRegistryDoc[]>([]);
-  const [adminSelectedEmail, setAdminSelectedEmail] = useState<string>('');
+  const [userRegistryList, setUserRegistryList] = useState<UserProfileDoc[]>([]);
+  const [adminSelectedUid, setAdminSelectedUid] = useState<string>('');
+  const [isInspectorBadgeClosed, setIsInspectorBadgeClosed] = useState<boolean>(false);
   const [readOnlyNotice, setReadOnlyNotice] = useState<string | null>(null);
 
   // App UI State
@@ -69,7 +71,13 @@ export default function App() {
   const [photoRecords, setPhotoRecords] = useState<Record<string, PhotoMeta[]>>({});
 
   const currentUser = guestUser || firebaseUser;
-  const isAdmin = firebaseUser?.email === ADMIN_EMAIL;
+
+  // Determine User Role
+  const userRole: UserRole = guestUser
+    ? 'trial'
+    : (userProfile?.role || 'user');
+
+  const isAdmin = userRole === 'admin';
 
   // 1. Subscribe to Firebase Auth
   useEffect(() => {
@@ -77,13 +85,21 @@ export default function App() {
       setFirebaseUser(user);
       setAuthInitialized(true);
 
-      if (user && user.email !== ADMIN_EMAIL && !guestUser) {
+      if (user && !guestUser) {
         setDataLoading(true);
-        const data = await fetchUserTravelData(user.uid);
-        setTravelRecords({ ...data.countries, ...data.regions });
-        setPhotoRecords({ ...data.countryPhotos, ...data.regionPhotos });
+        // Fetch user profile from Firestore users/{uid}
+        const profile = await fetchUserProfile(user.uid);
+        setUserProfile(profile);
+
+        // If not admin, load own travel data
+        if (profile?.role !== 'admin') {
+          const data = await fetchUserTravelData(user.uid);
+          setTravelRecords({ ...data.countries, ...data.regions });
+          setPhotoRecords({ ...data.countryPhotos, ...data.regionPhotos });
+        }
         setDataLoading(false);
       } else if (!user && !guestUser) {
+        setUserProfile(null);
         setTravelRecords({});
         setPhotoRecords({});
       }
@@ -96,11 +112,10 @@ export default function App() {
   useEffect(() => {
     if (isAdmin) {
       (async () => {
-        const list = await fetchAllUserCredentials();
+        const list = await fetchAllUserProfiles();
         setUserRegistryList(list);
-        if (!adminSelectedEmail && list.length > 0) {
-          const defaultAccount = list.find(u => u.email === DEFAULT_TEST_EMAIL) || list[0];
-          setAdminSelectedEmail(defaultAccount.email);
+        if (!adminSelectedUid && list.length > 0) {
+          setAdminSelectedUid(list[0].uid);
         }
       })();
     }
@@ -108,40 +123,23 @@ export default function App() {
 
   // 3. Load travel records for selected user in Admin Mode
   useEffect(() => {
-    if (isAdmin && adminSelectedEmail) {
+    if (isAdmin && adminSelectedUid) {
       (async () => {
         setDataLoading(true);
-        const targetUser = userRegistryList.find(u => u.email === adminSelectedEmail);
-        const targetUid = targetUser?.uid || 'test_user_1234_uid';
-
-        const data = await fetchUserTravelData(targetUid);
-        const hasData = Object.keys(data.countries).length > 0 || Object.keys(data.regions).length > 0;
-
-        if (hasData) {
-          setTravelRecords({ ...data.countries, ...data.regions });
-          setPhotoRecords({ ...data.countryPhotos, ...data.regionPhotos });
-        } else {
-          // Provide initial sample records if user profile has no data yet
-          setTravelRecords({
-            'JPN': { visited: true, visitCount: 2, wishlist: false, updatedAt: Date.now() },
-            'FRA': { visited: true, visitCount: 1, wishlist: false, updatedAt: Date.now() },
-            'USA': { visited: false, visitCount: 0, wishlist: true, updatedAt: Date.now() },
-            'SEOUL_GANGNAM': { visited: true, visitCount: 3, wishlist: false, updatedAt: Date.now() },
-            'GANGWON_GANGNEUNG': { visited: true, visitCount: 1, wishlist: false, updatedAt: Date.now() }
-          });
-          setPhotoRecords({});
-        }
+        const data = await fetchUserTravelData(adminSelectedUid);
+        setTravelRecords({ ...data.countries, ...data.regions });
+        setPhotoRecords({ ...data.countryPhotos, ...data.regionPhotos });
         setDataLoading(false);
       })();
     }
-  }, [isAdmin, adminSelectedEmail, userRegistryList]);
+  }, [isAdmin, adminSelectedUid]);
 
-  // 4. Start Guest Test Account Session (1234@gmail.com)
+  // 4. Start Guest Test Account Session
   const handleStartTestGuestSession = () => {
     const fakeGuest = {
-      uid: 'guest_test_session_1234_' + Date.now(),
-      email: DEFAULT_TEST_EMAIL,
-      displayName: '테스트 계정 (1234@gmail.com)',
+      uid: 'guest_trial_session_' + Date.now(),
+      email: 'guest@trial.local',
+      displayName: '체험 계정 (Test Guest)',
       isGuest: true
     } as any;
 
@@ -169,7 +167,9 @@ export default function App() {
       setPhotoRecords({});
     } else {
       await logoutUser();
-      setAdminSelectedEmail('');
+      setUserProfile(null);
+      setAdminSelectedUid('');
+      setIsInspectorBadgeClosed(false);
     }
   };
 
@@ -248,7 +248,6 @@ export default function App() {
     if (!ensureAuthenticated() || !currentUser) return;
 
     if (currentUser.isGuest) {
-      // In Guest Mode: memory state update
       const curr = travelRecords[code] || { visited: false, visitCount: 0, wishlist: false };
       const newCount = Math.max(0, (curr.visitCount || 0) + delta);
       const newVisited = newCount > 0;
@@ -282,7 +281,6 @@ export default function App() {
     if (!ensureAuthenticated() || !currentUser) return;
 
     if (currentUser.isGuest) {
-      // In Guest Mode: memory state update
       let newRec: TravelRecord = { visited: false, visitCount: 0, wishlist: false, updatedAt: Date.now() };
       if (action === 'visited') newRec = { visited: true, visitCount: 1, wishlist: false, updatedAt: Date.now() };
       else if (action === 'wishlist') newRec = { visited: false, visitCount: 0, wishlist: true, updatedAt: Date.now() };
@@ -311,7 +309,6 @@ export default function App() {
     const targetType = tabMode === 'overseas' ? 'country' : 'region';
 
     if (currentUser.isGuest) {
-      // Guest local blob photo upload
       const localUrl = URL.createObjectURL(file);
       const guestPhoto: PhotoMeta = {
         photoId: 'guest_photo_' + Date.now(),
@@ -370,7 +367,7 @@ export default function App() {
   const selectedPhotos = selectedCode ? photoRecords[selectedCode] || [] : [];
 
   const currentAdminInspectedUser = isAdmin
-    ? userRegistryList.find(u => u.email === adminSelectedEmail) || null
+    ? userRegistryList.find(u => u.uid === adminSelectedUid) || null
     : null;
 
   // Loading Screen
@@ -398,10 +395,13 @@ export default function App() {
         visitedCount={visitedCount}
         wishlistCount={wishlistCount}
         currentUser={currentUser}
-        isAdmin={isAdmin}
+        userRole={userRole}
         userRegistryList={userRegistryList}
-        adminSelectedEmail={adminSelectedEmail}
-        onSelectAdminUser={(email) => setAdminSelectedEmail(email)}
+        adminSelectedUid={adminSelectedUid}
+        onSelectAdminUser={(uid) => {
+          setAdminSelectedUid(uid);
+          setIsInspectorBadgeClosed(false);
+        }}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
       />
@@ -412,7 +412,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-amber-600 animate-pulse shrink-0" />
             <span>
-              <strong>🧪 테스트용 계정 (1234@gmail.com) 접속 중:</strong> 종료 시 입력한 테스트 기록이 초기화됩니다 (원상복구).
+              <strong>🧪 테스트 체험 모드 접속 중:</strong> 종료 시 입력한 테스트 기록이 초기화됩니다 (원상복구).
             </span>
           </div>
           <button
@@ -432,9 +432,12 @@ export default function App() {
         </div>
       )}
 
-      {/* Admin User Inspector Badge (Top Right) */}
-      {isAdmin && (
-        <AdminUserInspectorBadge selectedUser={currentAdminInspectedUser} />
+      {/* Admin User Inspector Badge (Draggable window) */}
+      {isAdmin && !isInspectorBadgeClosed && currentAdminInspectedUser && (
+        <AdminUserInspectorBadge
+          selectedUser={currentAdminInspectedUser}
+          onClose={() => setIsInspectorBadgeClosed(true)}
+        />
       )}
 
       {/* Main Content Area (Sidebar + Map) */}

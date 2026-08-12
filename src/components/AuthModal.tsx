@@ -83,7 +83,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <button
             id="btn-close-auth-modal"
             onClick={onClose}
-            className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -99,9 +99,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           >
             <Sparkles className="w-4 h-4 text-amber-300 animate-bounce" />
             <div className="flex flex-col text-left">
-              <span className="text-xs font-bold">🧪 테스트용 계정으로 접속</span>
+              <span className="text-xs font-bold">🧪 테스트용 체험 모드로 접속</span>
               <span className="text-[10px] text-gray-200 font-normal">
-                1234@gmail.com 계정으로 기능 체험 (종료 시 시작 전 상태로 원상복구)
+                로그인 없이 바로 주요 기능 체험 (종료 시 입력한 테스트 기록 원상복구)
               </span>
             </div>
           </button>
@@ -201,7 +201,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     setIsSignUp(false);
                     setErrorMessage(null);
                   }}
-                  className="text-[#4B5E40] font-bold hover:underline"
+                  className="text-[#4B5E40] font-bold hover:underline cursor-pointer"
                 >
                   로그인하기
                 </button>
@@ -215,7 +215,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     setIsSignUp(true);
                     setErrorMessage(null);
                   }}
-                  className="text-[#4B5E40] font-bold hover:underline"
+                  className="text-[#4B5E40] font-bold hover:underline cursor-pointer"
                 >
                   회원가입하기
                 </button>
